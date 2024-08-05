@@ -1,10 +1,5 @@
-#!/usr/bin/env python3
-##
-## EPITECH PROJECT, 2023
-## Rainbow DQN
-## File description:
-## Rainbow Agent
-##
+
+## Look again to be sure
 
 import torch
 import numpy as np
@@ -22,35 +17,38 @@ class ReplayBuffer:
         self.transitions = dict()
         self.datas = dict()
         self.max_size = N
-        self.curr_size = 0
+        self.size = 0
         self.max_priority = 0.01
         self.sum_priorities = 0
         
     def init_transition(self, experience, priority, proba, weight) -> None:
-        self.curr_size += 1
-        index = self.curr_size % self.max_size
+        self.size += 1
+        index = self.size % self.max_size
         self.transitions[index] = experience
         self.datas[index] = (priority, proba, weight, index)
         self.sum_priorities += priority
 
-    def store_transition(self, experience) -> None:
-        self.curr_size += 1
-        index = self.curr_size % self.max_size
+    def store_transition(
+        self,
+        experience
+    ) -> None:
+        self.size += 1
+        index = self.size % self.max_size
 
-        if self.curr_size > self.max_size:
+        if self.size > self.max_size:
             data = random.choices(list(self.datas.items()), k=1)[0][1]
             self.sum_priorities -= data[0] ** ALPHA
             if data[0] == self.max_priority:
                 self.priorities_max = max(self.datas.values(), key=operator.itemgetter(0))
             index = data[3]
             del self.datas[index]
-            self.curr_size -= 1
+            self.size -= 1
 
         self.transitions[index] = experience
         priority = self.max_priority
         self.sum_priorities += priority ** ALPHA
         proba = (priority ** ALPHA) / (self.sum_priorities ** ALPHA)
-        weight = ((1 / (self.curr_size * proba))) ** BETA
+        weight = ((1 / (self.size * proba))) ** BETA
         self.datas[index] = (priority, proba, weight, index)
     
     def retrieve_transitions(self) -> tuple:
@@ -71,7 +69,7 @@ class ReplayBuffer:
         dones_t = torch.as_tensor(np.array(dones), dtype=torch.float32).unsqueeze(-1)
         new_states_t = torch.as_tensor(np.array(new_states), dtype=torch.float32)
 
-        weights = torch.tensor([(1 / (self.curr_size * data[2])) ** BETA for data in datas])
+        weights = torch.tensor([(1 / (self.size * data[2])) ** BETA for data in datas])
         return states_t, actions_t, rewards_t, dones_t, new_states_t, weights, indexes
 
     def update_priority(self, new_priorities, indexes) -> None:
@@ -81,17 +79,3 @@ class ReplayBuffer:
             updated_proba = (1 / self.sum_priorities) * (updated_priority ** ALPHA)
             self.datas[index] = (updated_priority, updated_proba, weight, index)
             self.sum_priorities += updated_priority - old_priority
-
-
-class RainbowAgent:
-
-    def __init__(self, N) -> None:
-        self.buffer = ReplayBuffer(N=N)
-
-    def epsilon_greedy_policy(self, env, epsilon, greedy_action) -> int:
-        bool_action = random.random() > epsilon
-        if bool_action:
-            action = greedy_action
-        else:
-            action = env.action_space.sample()
-        return action
